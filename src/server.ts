@@ -1,12 +1,17 @@
 import express, { Request, Response } from "express"
 import {Pool} from "pg"
+import dotenv from "dotenv"
+import path from "path"
+
+
+dotenv.config({path: path.join(process.cwd(),".env")})
 const app = express()
 const port = 5000
 
 app.use(express.json())
 
 const pool = new Pool({
-  connectionString:`postgresql://neondb_owner:npg_kvgZi9mQjP4G@ep-steep-math-a4fgrg11-pooler.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require`
+  connectionString:`${process.env.CONNECTIONSTRING}`
 })
 
 
@@ -25,7 +30,17 @@ const initDB = async()=>{
     
      `)
      await pool.query(`
-      
+        CREATE TABLE IF NOT EXISTS todos(
+        id SERIAL PRIMARY KEY,
+        user_id INT REFERENCES users(id) ON DELETE CASCADE,
+        title VARCHAR(200) NOT NULL,
+        description TEXT,
+        completed BOOLEAN DEFAULT false,
+        due_data DATE,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+
+        )
       `)
 };
 initDB();
@@ -34,8 +49,26 @@ app.get('/', (req:Request, res:Response) => {
   res.send('Hello World!')
 })
 
-app.post("/",(req:Request,res:Response)=>{
-  console.log(req.body);
+app.post("/users",async(req:Request,res:Response)=>{
+  const {name,email}=req.body;
+
+  try{
+    const result = await pool.query(
+      `INSERT INTO users(name,email) VALUES($1, $2) RETURNING * `,
+     [name,email])
+     res.status(201).json({
+      success: true,
+      message:"Data instered Successfully",
+      data:result.rows[0],
+    })
+      
+  }catch(err:any){
+
+    res.status(500).json({
+      success: false,
+      message:err.message
+    })
+  }
 
   res.status(201).json({
     success:true,
